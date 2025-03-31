@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model classes {
+  class_id  Int         @id @default(autoincrement())
+  name      String?     @db.VarChar(100)
+  timetable timetable[]
+}
+
+model lecturereschedulerequests {
+  request_id            Int                               @id @default(autoincrement())
+  timetable_id          Int
+  original_teacher_id   Int
+  requested_time        DateTime                          @db.DateTime(0)
+  status                lecturereschedulerequests_status? @default(Pending)
+  reason                String?                           @db.Text
+  claimed_by_teacher_id Int?
+  claimed_teacher       teachers?                         @relation("ClaimedTeacher", fields: [claimed_by_teacher_id], references: [teacher_id], onUpdate: NoAction)
+  timetable             timetable                         @relation(fields: [timetable_id], references: [timetable_id], onDelete: Cascade, onUpdate: NoAction, map: "lecturereschedulerequests_ibfk_1")
+  originalTeacher       teachers                          @relation("OriginalTeacher", fields: [original_teacher_id], references: [teacher_id], onDelete: Cascade, onUpdate: NoAction, map: "lecturereschedulerequests_ibfk_2")
+
+  @@index([original_teacher_id], map: "teacher_id")
+  @@index([timetable_id], map: "timetable_id")
+  @@index([claimed_by_teacher_id], map: "lecturereschedulerequests_claimed_by_teacher_id_fkey")
+}
+
+model subjects {
+  subject_id Int         @id @default(autoincrement())
+  name       String      @db.VarChar(100)
+  code       String      @db.VarChar(20)
+  timetable  timetable[]
+}
+
+model teachers {
+  teacher_id                   Int                         @id @default(autoincrement())
+  name                         String                      @db.VarChar(100)
+  email                        String                      @unique(map: "email") @db.VarChar(100)
+  password                     String                      @db.VarChar(255)
+  phone                        String?                     @db.VarChar(20)
+  department                   String?                     @db.VarChar(50)
+  claimed_rescheduled_lectures lecturereschedulerequests[] @relation("ClaimedTeacher")
+  lecturereschedulerequests    lecturereschedulerequests[] @relation("OriginalTeacher")
+  timetable                    timetable[]
+}
+
+model timetable {
+  timetable_id              Int                         @id @default(autoincrement())
+  teacher_id                Int
+  subject_id                Int
+  class_id                  Int
+  day                       timetable_day
+  start_time                DateTime                    @db.Time(0)
+  end_time                  DateTime                    @db.Time(0)
+  status                    timetable_status?           @default(Scheduled)
+  lecturereschedulerequests lecturereschedulerequests[]
+  teachers                  teachers                    @relation(fields: [teacher_id], references: [teacher_id], onDelete: Cascade, onUpdate: NoAction, map: "timetable_ibfk_1")
+  subjects                  subjects                    @relation(fields: [subject_id], references: [subject_id], onDelete: Cascade, onUpdate: NoAction, map: "timetable_ibfk_2")
+  classes                   classes                     @relation(fields: [class_id], references: [class_id], onDelete: Cascade, onUpdate: NoAction, map: "timetable_ibfk_3")
+
+  @@index([class_id], map: "class_id")
+  @@index([subject_id], map: "subject_id")
+  @@index([teacher_id], map: "teacher_id")
+}
+
+enum lecturereschedulerequests_status {
+  Pending
+  Claimed
+  Rejected
+}
+
+enum timetable_day {
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+  Saturday
+  Sunday
+}
+
+enum timetable_status {
+  Scheduled
+  Reschedule_Requested @map("Reschedule Requested")
+  Cancelled
+}
